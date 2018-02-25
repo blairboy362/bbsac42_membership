@@ -10,6 +10,7 @@ func TestIdentifyMembers(t *testing.T) {
 	txns := []bankTxn{
 		{"JOE BLOGGS", decimal.New(15, 1)},
 		{"NO MATCH", decimal.New(30, 1)},
+		{"JOE BLOGGS", decimal.New(15, 1)},
 	}
 	refs := []referenceLookup{
 		{"JOE BLOGGS", []string{"A123456", "A789012"}},

@@ -1,6 +1,10 @@
 package main
 
-import "strings"
+import (
+	"fmt"
+	"os"
+	"strings"
+)
 
 type referenceLookup struct {
 	reference     string
@@ -33,11 +37,19 @@ func (rl1 *referenceLookup) equal(rl2 *referenceLookup) bool {
 }
 
 func identifyMembers(txns []bankTxn, references []referenceLookup) (memberIds []string, unmatchedTxns []bankTxn) {
+	memberSet := make(map[string]bool)
 	for _, txn := range txns {
 		found := false
 		for _, lookup := range references {
 			if txn.description == lookup.reference {
-				memberIds = append(memberIds, lookup.membershipIds...)
+				for _, memberID := range lookup.membershipIds {
+					_, ok := memberSet[memberID]
+					if ok {
+						fmt.Fprintf(os.Stderr, "Duplicate member ID: %v", memberID)
+					}
+					memberSet[memberID] = true
+				}
+
 				found = true
 				break
 			}
@@ -46,6 +58,13 @@ func identifyMembers(txns []bankTxn, references []referenceLookup) (memberIds []
 		if !found {
 			unmatchedTxns = append(unmatchedTxns, txn)
 		}
+	}
+
+	memberIds = make([]string, len(memberSet))
+	i := 0
+	for k := range memberSet {
+		memberIds[i] = k
+		i++
 	}
 
 	return memberIds, unmatchedTxns
