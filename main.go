@@ -8,7 +8,7 @@ import (
 )
 
 type membership struct {
-	references []referenceLookup
+	references map[string][]string
 	members    map[string]member
 	newMembers []member
 }

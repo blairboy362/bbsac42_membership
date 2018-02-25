@@ -12,8 +12,8 @@ func TestIdentifyMembers(t *testing.T) {
 		{"NO MATCH", decimal.New(30, 1)},
 		{"JOE BLOGGS", decimal.New(15, 1)},
 	}
-	refs := []referenceLookup{
-		{"JOE BLOGGS", []string{"A123456", "A789012"}},
+	refs := map[string][]string{
+		"JOE BLOGGS": {"A123456", "A789012"},
 	}
 	expectedMemberIds := []string{
 		"A123456",

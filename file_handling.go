@@ -131,7 +131,7 @@ func loadTxnsFromCsv(path string) (txns []bankTxn, err error) {
 	return txns, nil
 }
 
-func loadMemberReferencesFromCsv(path string) (references []referenceLookup, err error) {
+func loadMemberReferencesFromCsv(path string) (references map[string][]string, err error) {
 	txnFile, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -139,6 +139,7 @@ func loadMemberReferencesFromCsv(path string) (references []referenceLookup, err
 	defer txnFile.Close()
 
 	csvReader := csv.NewReader(bufio.NewReader(txnFile))
+	references = make(map[string][]string)
 	firstLine := true
 	for {
 		line, err := csvReader.Read()
@@ -155,8 +156,14 @@ func loadMemberReferencesFromCsv(path string) (references []referenceLookup, err
 			continue
 		}
 
+		reference := strings.TrimSpace(strings.ToUpper(line[0]))
 		membershipIds := strings.Split(line[1], "|")
-		references = append(references, *newReferenceLookup(line[0], membershipIds))
+		_, ok := references[reference]
+		if !ok {
+			references[reference] = membershipIds
+		} else {
+			fmt.Fprintf(os.Stderr, "Loaded duplicate reference %v\n", reference)
+		}
 	}
 
 	return references, nil
