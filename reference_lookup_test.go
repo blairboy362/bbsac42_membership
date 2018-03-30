@@ -7,7 +7,7 @@ import (
 )
 
 func TestIdentifyMembers(t *testing.T) {
-	txns := []bankTxn{
+	txns := []*bankTxn{
 		{"JOE BLOGGS", decimal.New(15, 1)},
 		{"NO MATCH", decimal.New(30, 1)},
 		{"JOE BLOGGS", decimal.New(15, 1)},
@@ -19,7 +19,7 @@ func TestIdentifyMembers(t *testing.T) {
 		"A123456",
 		"A789012",
 	}
-	expectedUnmatchedTxns := []bankTxn{
+	expectedUnmatchedTxns := []*bankTxn{
 		{"NO MATCH", decimal.New(30, 1)},
 	}
 
@@ -52,7 +52,7 @@ func TestIdentifyMembers(t *testing.T) {
 	}
 
 	for i := range expectedUnmatchedTxns {
-		if !expectedUnmatchedTxns[i].equal(&actualUnmatchedTxns[i]) {
+		if !expectedUnmatchedTxns[i].equal(actualUnmatchedTxns[i]) {
 			t.Fatalf("%v != %v", expectedUnmatchedTxns[i], actualUnmatchedTxns[i])
 		}
 	}

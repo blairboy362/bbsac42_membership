@@ -24,7 +24,7 @@ func (t1 *bankTxn) equal(t2 *bankTxn) bool {
 	return t1.description == t2.description && t1.amount.Equal(t2.amount)
 }
 
-func filterInterestingTxns(source []bankTxn, interestingAmounts []decimal.Decimal) (interestedTxns []bankTxn, junkTxns []bankTxn) {
+func filterInterestingTxns(source []*bankTxn, interestingAmounts []decimal.Decimal) (interestedTxns []*bankTxn, junkTxns []*bankTxn) {
 	for _, txn := range source {
 		found := false
 		for _, amount := range interestingAmounts {

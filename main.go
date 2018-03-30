@@ -7,21 +7,30 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+const (
+	DefaultIgnoreTxnsPath              = "ignored_txns.csv"
+	DefaultIncorrectMembershipTxnsPath = "incorrect_membership_txns.csv"
+	DefaultUnmatchedTxnsPath           = "unmatched_txns.csv"
+	DefaultPaidMembersPath             = "paid_members.csv"
+	DefaultUnmatchedMemberIDsPath      = "unmatched_memberids.csv"
+	DefaultAllMembersPath              = "all_members.csv"
+)
+
 type membership struct {
 	references map[string][]string
-	members    map[string]member
-	newMembers []member
+	members    map[string]*Member
+	newMembers []*Member
 }
 
 type transactions struct {
-	ignored   []bankTxn
-	incorrect []bankTxn
-	candidate []bankTxn
-	unmatched []bankTxn
+	ignored   []*bankTxn
+	incorrect []*bankTxn
+	candidate []*bankTxn
+	unmatched []*bankTxn
 }
 
 type members struct {
-	paying       []member
+	paying       []*Member
 	unmatchedIDs []string
 }
 
@@ -31,25 +40,22 @@ type activeMembers struct {
 }
 
 func newMembership(referencePath, membersPath, newMembersPath string) (*membership, error) {
+	var err error
 	m := membership{}
-	references, err := loadMemberReferencesFromCsv(referencePath)
+	m.references, err = loadMemberReferencesFromCsv(referencePath)
 	if err != nil {
 		return nil, err
 	}
 
-	m.references = references
-	members, err := loadMembershipDetailsFromCsv(membersPath)
+	m.members, err = loadMembershipDetailsFromCsv(membersPath)
 	if err != nil {
 		return nil, err
 	}
 
-	m.members = members
-	newMembers, err := loadNewMembersFromCsv(newMembersPath)
+	m.newMembers, err = loadNewMembersFromCsv(newMembersPath)
 	if err != nil {
 		panic(err)
 	}
-
-	m.newMembers = newMembers
 
 	return &m, nil
 }
@@ -91,12 +97,6 @@ func main() {
 		decimal.New(25, 0),
 	}
 	membershipAmounts = append(membershipAmounts, correctMembershipAmounts...)
-	ignoreTxnsPath := "ignored_txns.csv"
-	incorrectMembershipTxnsPath := "incorrect_membership_txns.csv"
-	unmatchedTxnsPath := "unmatched_txns.csv"
-	paidMembersPath := "paid_members.csv"
-	unmatchedMemberIDsPath := "unmatched_memberids.csv"
-	allMembersPath := "all_members.csv"
 	txnsPath := os.Args[1]
 	referencePath := os.Args[2]
 	membersPath := os.Args[3]
@@ -117,46 +117,46 @@ func main() {
 
 	fmt.Printf("Loaded %v transactions.\n", len(activeMembers.txns.candidate)+len(activeMembers.txns.ignored))
 	if len(activeMembers.txns.ignored) > 0 {
-		fmt.Printf("Writing %v ignored records to %v.\n", len(activeMembers.txns.ignored), ignoreTxnsPath)
-		err = writeTxnsToCsv(ignoreTxnsPath, activeMembers.txns.ignored)
+		fmt.Printf("Writing %v ignored records to %v.\n", len(activeMembers.txns.ignored), DefaultIgnoreTxnsPath)
+		err = writeTxnsToCsv(DefaultIgnoreTxnsPath, activeMembers.txns.ignored)
 		if err != nil {
 			panic(err)
 		}
 	}
 
 	if len(activeMembers.txns.incorrect) > 0 {
-		fmt.Printf("Writing %v incorrect membership records to %v.\n", len(activeMembers.txns.incorrect), incorrectMembershipTxnsPath)
-		err = writeTxnsToCsv(incorrectMembershipTxnsPath, activeMembers.txns.incorrect)
+		fmt.Printf("Writing %v incorrect membership records to %v.\n", len(activeMembers.txns.incorrect), DefaultIncorrectMembershipTxnsPath)
+		err = writeTxnsToCsv(DefaultIncorrectMembershipTxnsPath, activeMembers.txns.incorrect)
 		if err != nil {
 			panic(err)
 		}
 	}
 
 	if len(activeMembers.txns.unmatched) > 0 {
-		fmt.Printf("Writing %v unmatched transactions to %v.\n", len(activeMembers.txns.unmatched), unmatchedTxnsPath)
-		err = writeTxnsToCsv(unmatchedTxnsPath, activeMembers.txns.unmatched)
+		fmt.Printf("Writing %v unmatched transactions to %v.\n", len(activeMembers.txns.unmatched), DefaultUnmatchedTxnsPath)
+		err = writeTxnsToCsv(DefaultUnmatchedTxnsPath, activeMembers.txns.unmatched)
 		if err != nil {
 			panic(err)
 		}
 	}
 
 	if len(activeMembers.members.unmatchedIDs) > 0 {
-		fmt.Printf("Writing %v unmatched member IDs to %v.\n", len(activeMembers.members.unmatchedIDs), unmatchedMemberIDsPath)
-		err = writeMemberIdsToCsv(unmatchedMemberIDsPath, activeMembers.members.unmatchedIDs)
+		fmt.Printf("Writing %v unmatched member IDs to %v.\n", len(activeMembers.members.unmatchedIDs), DefaultUnmatchedMemberIDsPath)
+		err = writeMemberIdsToCsv(DefaultUnmatchedMemberIDsPath, activeMembers.members.unmatchedIDs)
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	fmt.Printf("Writing %v paid members details to %v\n", len(activeMembers.members.paying), paidMembersPath)
-	err = writeMembersToCsv(paidMembersPath, activeMembers.members.paying)
+	fmt.Printf("Writing %v paid members details to %v\n", len(activeMembers.members.paying), DefaultPaidMembersPath)
+	err = writeMembersToCsv(DefaultPaidMembersPath, activeMembers.members.paying)
 	if err != nil {
 		panic(err)
 	}
 
 	allMembers := append(activeMembers.members.paying, membership.newMembers...)
-	fmt.Printf("Writing %v members details to %v\n", len(allMembers), allMembersPath)
-	err = writeMembersToCsv(allMembersPath, allMembers)
+	fmt.Printf("Writing %v members details to %v\n", len(allMembers), DefaultAllMembersPath)
+	err = writeMembersToCsv(DefaultAllMembersPath, allMembers)
 	if err != nil {
 		panic(err)
 	}

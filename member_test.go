@@ -5,11 +5,11 @@ import (
 )
 
 func TestMatchMembers(t *testing.T) {
-	membersDetails := map[string]member{
+	membersDetails := map[string]*Member{
 		"A123456": {"A123456", "Mr", "Joe", "Blogg", "joebloggs@example.com"},
 	}
 	memberIds := []string{"A123456", "A789012"}
-	expectedMatchedMembers := []member{
+	expectedMatchedMembers := []*Member{
 		{"A123456", "Mr", "Joe", "Blogg", "joebloggs@example.com"},
 	}
 	expectedUnmatchedMembers := []string{"A789012"}
@@ -37,7 +37,7 @@ func TestMatchMembers(t *testing.T) {
 	}
 
 	for i := range expectedMatchedMembers {
-		if !expectedMatchedMembers[i].equal(&actualMatchedMembers[i]) {
+		if !expectedMatchedMembers[i].equal(actualMatchedMembers[i]) {
 			t.Fatalf(
 				"%v != %v",
 				expectedMatchedMembers[i],

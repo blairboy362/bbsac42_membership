@@ -9,7 +9,7 @@ import (
 This file used to include a struct with additional boilerplate. Keeping
 this here as I don't currently have a better place for it.
 */
-func identifyMembers(txns []bankTxn, references map[string][]string) (memberIds []string, unmatchedTxns []bankTxn) {
+func identifyMembers(txns []*bankTxn, references map[string][]string) (memberIds []string, unmatchedTxns []*bankTxn) {
 	memberSet := make(map[string]bool)
 	for _, txn := range txns {
 		memberIDs, ok := references[txn.description]
@@ -17,7 +17,7 @@ func identifyMembers(txns []bankTxn, references map[string][]string) (memberIds 
 			for _, memberID := range memberIDs {
 				_, ok := memberSet[memberID]
 				if ok {
-					fmt.Fprintf(os.Stderr, "Duplicate member ID: %v", memberID)
+					fmt.Fprintf(os.Stderr, "Duplicate member ID: %v\n", memberID)
 				}
 				memberSet[memberID] = true
 			}

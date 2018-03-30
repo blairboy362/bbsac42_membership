@@ -4,160 +4,105 @@ import (
 	"bufio"
 	"encoding/csv"
 	"fmt"
-	"io"
 	"os"
 	"strings"
+
+	"github.com/gocarina/gocsv"
+	"github.com/pkg/errors"
 )
 
-func loadMembershipDetailsFromCsv(path string) (members map[string]member, err error) {
+func loadMembershipDetailsFromCsv(path string) (members map[string]*Member, err error) {
 	memberFile, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "Failed to open %s", path)
 	}
 	defer memberFile.Close()
 
-	members = make(map[string]member)
-	var csvFields map[string]int
-	csvFields = make(map[string]int)
-	csvReader := csv.NewReader(bufio.NewReader(memberFile))
-	firstLine := true
-	for {
-		line, err := csvReader.Read()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return nil, err
-		} else if len(line) < 5 {
-			return nil, fmt.Errorf("Line does not have enough fields: %v", line)
-		}
+	loadedMembers := []*Member{}
+	err = gocsv.UnmarshalFile(memberFile, &loadedMembers)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to parse membership from %s", path)
+	}
 
-		if firstLine {
-			firstLine = false
-			for i, fieldName := range line {
-				csvFields[fieldName] = i
-			}
-			continue
-		}
-
-		members[line[csvFields["MemberId"]]] = member{
-			line[csvFields["MemberId"]],
-			line[csvFields["Title"]],
-			line[csvFields["Forenames"]],
-			line[csvFields["Surname"]],
-			line[csvFields["EmailAddress"]],
-		}
+	members = make(map[string]*Member)
+	for _, member := range loadedMembers {
+		members[member.MemberID] = member
 	}
 
 	return members, nil
 }
 
-func loadNewMembersFromCsv(path string) (members []member, err error) {
+func loadNewMembersFromCsv(path string) (members []*Member, err error) {
 	memberFile, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "Failed to open %s", path)
 	}
 	defer memberFile.Close()
 
-	var csvFields map[string]int
-	csvFields = make(map[string]int)
-	csvReader := csv.NewReader(bufio.NewReader(memberFile))
-	firstLine := true
-	for {
-		line, err := csvReader.Read()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return nil, err
-		} else if len(line) < 4 {
-			return nil, fmt.Errorf("Line does not have enough fields: %v", line)
-		}
-
-		if firstLine {
-			firstLine = false
-			for i, fieldName := range line {
-				csvFields[fieldName] = i
-			}
-			continue
-		}
-
-		members = append(members, member{
-			"",
-			line[csvFields["Title"]],
-			line[csvFields["Forenames"]],
-			line[csvFields["Surname"]],
-			line[csvFields["EmailAddress"]],
-		})
+	err = gocsv.UnmarshalFile(memberFile, &members)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to parse membership from %s", path)
 	}
 
 	return members, nil
 }
 
-func loadTxnsFromCsv(path string) (txns []bankTxn, err error) {
+type CsvBankTxn struct {
+	Junk1       string `csv:"Date"`
+	Junk2       string `csv:"Type"`
+	Description string `csv:"Description"`
+	Junk3       string `csv:"Paid out"`
+	Amount      string `csv:"Paid in"`
+	Junk4       string `csv:"Balance"`
+}
+
+func loadTxnsFromCsv(path string) (txns []*bankTxn, err error) {
 	txnFile, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "Failed to open %s", path)
 	}
 	defer txnFile.Close()
 
-	csvReader := csv.NewReader(bufio.NewReader(txnFile))
-	firstLine := true
-	for {
-		line, err := csvReader.Read()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return nil, err
-		} else if len(line) < 5 {
-			return nil, fmt.Errorf("Line %v does not have enough fields", line)
+	loadedTxns := []*CsvBankTxn{}
+	err = gocsv.UnmarshalFile(txnFile, &loadedTxns)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to parse transactions from %s", path)
+	}
+
+	for _, loadedTxn := range loadedTxns {
+		txn, err := newBankTxn(loadedTxn.Description, loadedTxn.Amount)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to parse transaction (%v): %v", *loadedTxn, err)
 		}
 
-		if firstLine {
-			firstLine = false
-			continue
-		}
-
-		if line[1] == "CR" {
-			txn, err := newBankTxn(line[2], line[4])
-			if err != nil {
-				return nil, fmt.Errorf("Failed to parse transaction (%v): %v", line, err)
-			}
-
-			txns = append(txns, *txn)
-		} else {
-			fmt.Fprintf(os.Stderr, "Skipping record (%v)\n", line)
-		}
+		txns = append(txns, txn)
 	}
 
 	return txns, nil
 }
 
+type MemberReference struct {
+	Reference string `csv:"Reference"`
+	MemberIDs string `csv:"MemberIds"`
+}
+
 func loadMemberReferencesFromCsv(path string) (references map[string][]string, err error) {
-	txnFile, err := os.Open(path)
+	referenceFile, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "Failed to open %s", path)
 	}
-	defer txnFile.Close()
+	defer referenceFile.Close()
 
-	csvReader := csv.NewReader(bufio.NewReader(txnFile))
-	references = make(map[string][]string)
-	firstLine := true
-	for {
-		line, err := csvReader.Read()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return nil, err
-		} else if len(line) < 2 {
-			return nil, fmt.Errorf("Line %v does not have enough fields", line)
-		}
+	loadedReferences := []*MemberReference{}
+	err = gocsv.UnmarshalFile(referenceFile, &loadedReferences)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to parse membership from %s", path)
+	}
 
-		if firstLine {
-			firstLine = false
-			continue
-		}
-
-		reference := strings.TrimSpace(strings.ToUpper(line[0]))
-		membershipIds := strings.Split(line[1], "|")
+	references = map[string][]string{}
+	for _, loadedReference := range loadedReferences {
+		reference := strings.TrimSpace(strings.ToUpper(loadedReference.Reference))
+		membershipIds := strings.Split(loadedReference.MemberIDs, "|")
 		_, ok := references[reference]
 		if !ok {
 			references[reference] = membershipIds
@@ -169,7 +114,7 @@ func loadMemberReferencesFromCsv(path string) (references map[string][]string, e
 	return references, nil
 }
 
-func writeTxnsToCsv(path string, txns []bankTxn) error {
+func writeTxnsToCsv(path string, txns []*bankTxn) error {
 	txnFile, err := os.Create(path)
 	if err != nil {
 		return err
@@ -177,6 +122,11 @@ func writeTxnsToCsv(path string, txns []bankTxn) error {
 	defer txnFile.Close()
 
 	csvWriter := csv.NewWriter(bufio.NewWriter(txnFile))
+	err = csvWriter.Write([]string{"Description", "Amount"})
+	if err != nil {
+		return err
+	}
+
 	for _, txn := range txns {
 		err := csvWriter.Write([]string{txn.description, txn.amount.String()})
 		if err != nil {
@@ -189,29 +139,17 @@ func writeTxnsToCsv(path string, txns []bankTxn) error {
 	return nil
 }
 
-func writeMembersToCsv(path string, members []member) error {
+func writeMembersToCsv(path string, members []*Member) error {
 	memberFile, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer memberFile.Close()
 
-	csvWriter := csv.NewWriter(bufio.NewWriter(memberFile))
-	for _, member := range members {
-		err := csvWriter.Write(
-			[]string{
-				member.memberID,
-				member.title,
-				member.forenames,
-				member.surname,
-				member.emailAddress,
-			})
-		if err != nil {
-			return err
-		}
+	err = gocsv.MarshalFile(members, memberFile)
+	if err != nil {
+		return err
 	}
-
-	csvWriter.Flush()
 
 	return nil
 }
@@ -224,6 +162,11 @@ func writeMemberIdsToCsv(path string, memberIds []string) error {
 	defer memberIDFile.Close()
 
 	csvWriter := csv.NewWriter(bufio.NewWriter(memberIDFile))
+	err = csvWriter.Write([]string{"MemberId"})
+	if err != nil {
+		return err
+	}
+
 	for _, memberID := range memberIds {
 		err := csvWriter.Write([]string{memberID})
 		if err != nil {

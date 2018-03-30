@@ -7,7 +7,7 @@ import (
 )
 
 func TestFilterInterestingTxns(t *testing.T) {
-	allTxns := []bankTxn{
+	allTxns := []*bankTxn{
 		{"JoeBloggs", decimal.New(15, 1)},
 		{"JaneDoe", decimal.New(1234, -2)},
 	}
@@ -17,10 +17,10 @@ func TestFilterInterestingTxns(t *testing.T) {
 		decimal.New(25, 1),
 		decimal.New(30, 1),
 	}
-	expectedInterestingTxns := []bankTxn{
+	expectedInterestingTxns := []*bankTxn{
 		{"JoeBloggs", decimal.New(15, 1)},
 	}
-	expectedJunkTxns := []bankTxn{
+	expectedJunkTxns := []*bankTxn{
 		{"JaneDoe", decimal.New(1234, -2)},
 	}
 
@@ -47,7 +47,7 @@ func TestFilterInterestingTxns(t *testing.T) {
 	}
 
 	for i := range expectedInterestingTxns {
-		if !expectedInterestingTxns[i].equal(&actualInterestingTxns[i]) {
+		if !expectedInterestingTxns[i].equal(actualInterestingTxns[i]) {
 			t.Fatalf(
 				"%v != %v",
 				expectedInterestingTxns[i],
@@ -56,7 +56,7 @@ func TestFilterInterestingTxns(t *testing.T) {
 	}
 
 	for i := range expectedJunkTxns {
-		if !expectedJunkTxns[i].equal(&actualJunkTxns[i]) {
+		if !expectedJunkTxns[i].equal(actualJunkTxns[i]) {
 			t.Fatalf(
 				"%v != %v",
 				expectedJunkTxns[i],

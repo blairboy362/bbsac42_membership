@@ -1,8 +1,8 @@
 bbsac42_membership: main.go bank_txn.go reference_lookup.go file_handling.go
-	go build -o bbsac42_membership main.go bank_txn.go reference_lookup.go file_handling.go member.go
+	go build -o bbsac42_membership
 
 test:
-	go test
+	go test -v
 
 clean:
 	rm -f bbsac42_membership *csv
