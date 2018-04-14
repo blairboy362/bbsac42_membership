@@ -5,11 +5,34 @@ import (
 	"encoding/csv"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/gocarina/gocsv"
 	"github.com/pkg/errors"
 )
+
+type fileConfig struct {
+	baseDir            string
+	currentFolderName  string
+	previousFolderName string
+}
+
+func (fc *fileConfig) getSourcePath(fileName string) string {
+	return filepath.Join(fc.baseDir, "in", fileName)
+}
+
+func (fc *fileConfig) getCurrentSourcePath(fileName string) string {
+	return filepath.Join(fc.baseDir, "in", fc.currentFolderName, fileName)
+}
+
+func (fc *fileConfig) getCurrentDestinationPath(fileName string) string {
+	return filepath.Join(fc.baseDir, "out", fc.currentFolderName, fileName)
+}
+
+func (fc *fileConfig) getPreviousDestinationPath(fileName string) string {
+	return filepath.Join(fc.baseDir, "out", fc.previousFolderName, fileName)
+}
 
 func loadMembershipDetailsFromCsv(path string) (members map[string]*Member, err error) {
 	memberFile, err := os.Open(path)

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/shopspring/decimal"
 )
@@ -39,20 +40,20 @@ type activeMembers struct {
 	members members
 }
 
-func newMembership(referencePath, membersPath, newMembersPath string) (*membership, error) {
+func newMembership(fc *fileConfig) (*membership, error) {
 	var err error
 	m := membership{}
-	m.references, err = loadMemberReferencesFromCsv(referencePath)
+	m.references, err = loadMemberReferencesFromCsv(fc.getSourcePath("reference_member_mappings.csv"))
 	if err != nil {
 		return nil, err
 	}
 
-	m.members, err = loadMembershipDetailsFromCsv(membersPath)
+	m.members, err = loadMembershipDetailsFromCsv(fc.getSourcePath("membership_details.csv"))
 	if err != nil {
 		return nil, err
 	}
 
-	m.newMembers, err = loadNewMembersFromCsv(newMembersPath)
+	m.newMembers, err = loadNewMembersFromCsv(fc.getSourcePath("new_members.csv"))
 	if err != nil {
 		panic(err)
 	}
@@ -83,7 +84,7 @@ func (m *membership) loadAndFilterTxns(txnsPath string, correctMembershipAmounts
 }
 
 func main() {
-	if len(os.Args) != 5 {
+	if len(os.Args) < 2 {
 		panic("Missing argument!")
 	}
 
@@ -97,12 +98,21 @@ func main() {
 		decimal.New(25, 0),
 	}
 	membershipAmounts = append(membershipAmounts, correctMembershipAmounts...)
-	txnsPath := os.Args[1]
-	referencePath := os.Args[2]
-	membersPath := os.Args[3]
-	newMembersPath := os.Args[4]
+	currentUtcTime := time.Now().UTC()
+	fileConfig := fileConfig{
+		os.Args[1],
+		currentUtcTime.Format("200601"),
+		currentUtcTime.AddDate(0, -1, 0).Format("200601"),
+	}
 
-	membership, err := newMembership(referencePath, membersPath, newMembersPath)
+	ignoreTxnsPath := fileConfig.getCurrentDestinationPath(DefaultIgnoreTxnsPath)
+	incorrectMembershipTxnsPath := fileConfig.getCurrentDestinationPath(DefaultIncorrectMembershipTxnsPath)
+	unmatchedTxnsPath := fileConfig.getCurrentDestinationPath(DefaultUnmatchedTxnsPath)
+	paidMembersPath := fileConfig.getCurrentDestinationPath(DefaultPaidMembersPath)
+	unmatchedMemberIDsPath := fileConfig.getCurrentDestinationPath(DefaultUnmatchedMemberIDsPath)
+	allMembersPath := fileConfig.getCurrentDestinationPath(DefaultAllMembersPath)
+
+	membership, err := newMembership(&fileConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -110,53 +120,66 @@ func main() {
 	fmt.Printf("Loaded %v references.\n", len(membership.references))
 	fmt.Printf("Loaded %v members details.\n", len(membership.members))
 	fmt.Printf("Loaded %v new members details.\n", len(membership.newMembers))
-	activeMembers, err := membership.loadAndFilterTxns(txnsPath, correctMembershipAmounts, membershipAmounts)
+	activeMembers, err := membership.loadAndFilterTxns(fileConfig.getCurrentSourcePath("bank_acct_txns.csv"), correctMembershipAmounts, membershipAmounts)
+	if err != nil {
+		panic(err)
+	}
+
+	destinationDir := fileConfig.getCurrentDestinationPath("")
+	fmt.Printf("Deleting directory %v.\n", destinationDir)
+	err = os.RemoveAll(destinationDir)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Creating directory %v.\n", destinationDir)
+	err = os.MkdirAll(destinationDir, 0755)
 	if err != nil {
 		panic(err)
 	}
 
 	fmt.Printf("Loaded %v transactions.\n", len(activeMembers.txns.candidate)+len(activeMembers.txns.ignored))
 	if len(activeMembers.txns.ignored) > 0 {
-		fmt.Printf("Writing %v ignored records to %v.\n", len(activeMembers.txns.ignored), DefaultIgnoreTxnsPath)
-		err = writeTxnsToCsv(DefaultIgnoreTxnsPath, activeMembers.txns.ignored)
+		fmt.Printf("Writing %v ignored records to %v.\n", len(activeMembers.txns.ignored), ignoreTxnsPath)
+		err = writeTxnsToCsv(ignoreTxnsPath, activeMembers.txns.ignored)
 		if err != nil {
 			panic(err)
 		}
 	}
 
 	if len(activeMembers.txns.incorrect) > 0 {
-		fmt.Printf("Writing %v incorrect membership records to %v.\n", len(activeMembers.txns.incorrect), DefaultIncorrectMembershipTxnsPath)
-		err = writeTxnsToCsv(DefaultIncorrectMembershipTxnsPath, activeMembers.txns.incorrect)
+		fmt.Printf("Writing %v incorrect membership records to %v.\n", len(activeMembers.txns.incorrect), incorrectMembershipTxnsPath)
+		err = writeTxnsToCsv(incorrectMembershipTxnsPath, activeMembers.txns.incorrect)
 		if err != nil {
 			panic(err)
 		}
 	}
 
 	if len(activeMembers.txns.unmatched) > 0 {
-		fmt.Printf("Writing %v unmatched transactions to %v.\n", len(activeMembers.txns.unmatched), DefaultUnmatchedTxnsPath)
-		err = writeTxnsToCsv(DefaultUnmatchedTxnsPath, activeMembers.txns.unmatched)
+		fmt.Printf("Writing %v unmatched transactions to %v.\n", len(activeMembers.txns.unmatched), unmatchedTxnsPath)
+		err = writeTxnsToCsv(unmatchedTxnsPath, activeMembers.txns.unmatched)
 		if err != nil {
 			panic(err)
 		}
 	}
 
 	if len(activeMembers.members.unmatchedIDs) > 0 {
-		fmt.Printf("Writing %v unmatched member IDs to %v.\n", len(activeMembers.members.unmatchedIDs), DefaultUnmatchedMemberIDsPath)
-		err = writeMemberIdsToCsv(DefaultUnmatchedMemberIDsPath, activeMembers.members.unmatchedIDs)
+		fmt.Printf("Writing %v unmatched member IDs to %v.\n", len(activeMembers.members.unmatchedIDs), unmatchedMemberIDsPath)
+		err = writeMemberIdsToCsv(unmatchedMemberIDsPath, activeMembers.members.unmatchedIDs)
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	fmt.Printf("Writing %v paid members details to %v\n", len(activeMembers.members.paying), DefaultPaidMembersPath)
-	err = writeMembersToCsv(DefaultPaidMembersPath, activeMembers.members.paying)
+	fmt.Printf("Writing %v paid members details to %v\n", len(activeMembers.members.paying), paidMembersPath)
+	err = writeMembersToCsv(paidMembersPath, activeMembers.members.paying)
 	if err != nil {
 		panic(err)
 	}
 
 	allMembers := append(activeMembers.members.paying, membership.newMembers...)
-	fmt.Printf("Writing %v members details to %v\n", len(allMembers), DefaultAllMembersPath)
-	err = writeMembersToCsv(DefaultAllMembersPath, allMembers)
+	fmt.Printf("Writing %v members details to %v\n", len(allMembers), allMembersPath)
+	err = writeMembersToCsv(allMembersPath, allMembers)
 	if err != nil {
 		panic(err)
 	}

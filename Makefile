@@ -8,6 +8,6 @@ clean:
 	rm -f bbsac42_membership *csv
 
 run-local: bbsac42_membership
-	./bbsac42_membership /home/daniel/BSAC/Treasurer/BSACFeb14th2018.csv /home/daniel/BSAC/Treasurer/reference_member_mappings.csv /home/daniel/BSAC/Treasurer/membership_details.csv /home/daniel/BSAC/Treasurer/new_members.csv
+	./bbsac42_membership /home/daniel/BSAC/Treasurer/bbsac42_membership
 
 .PHONY: clean run-local test
