@@ -15,6 +15,7 @@ const (
 	DefaultPaidMembersPath             = "paid_members.csv"
 	DefaultUnmatchedMemberIDsPath      = "unmatched_memberids.csv"
 	DefaultAllMembersPath              = "all_members.csv"
+	DefaultMissingMarketingPath        = "missing_marketing.csv"
 )
 
 type membership struct {
@@ -83,8 +84,30 @@ func (m *membership) loadAndFilterTxns(txnsPath string, correctMembershipAmounts
 	return am, err
 }
 
+func identifyMembersMissingFromMarketingList(allMembers []*Member, marketingEmailAddresses []string) (missingMembers []*Member) {
+	var found = false
+	missingMembers = []*Member{}
+	for _, member := range allMembers {
+		if len(member.EmailAddress) > 0 {
+			found = false
+			for _, emailAddress := range marketingEmailAddresses {
+				if emailAddress == member.EmailAddress {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				missingMembers = append(missingMembers, member)
+			}
+		}
+	}
+
+	return missingMembers
+}
+
 func main() {
-	if len(os.Args) < 2 {
+	if len(os.Args) < 3 {
 		panic("Missing argument!")
 	}
 
@@ -111,6 +134,8 @@ func main() {
 	paidMembersPath := fileConfig.getCurrentDestinationPath(DefaultPaidMembersPath)
 	unmatchedMemberIDsPath := fileConfig.getCurrentDestinationPath(DefaultUnmatchedMemberIDsPath)
 	allMembersPath := fileConfig.getCurrentDestinationPath(DefaultAllMembersPath)
+	marketingEmailListPath := os.Args[2]
+	missingMarketingPath := fileConfig.getCurrentDestinationPath(DefaultMissingMarketingPath)
 
 	membership, err := newMembership(&fileConfig)
 	if err != nil {
@@ -120,6 +145,12 @@ func main() {
 	fmt.Printf("Loaded %v references.\n", len(membership.references))
 	fmt.Printf("Loaded %v members details.\n", len(membership.members))
 	fmt.Printf("Loaded %v new members details.\n", len(membership.newMembers))
+	marketingEmailAddresses, err := loadEmailsFromCsv(marketingEmailListPath)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Loaded %v marketing email addresses.\n", len(marketingEmailAddresses))
 	activeMembers, err := membership.loadAndFilterTxns(fileConfig.getCurrentSourcePath("bank_acct_txns.csv"), correctMembershipAmounts, membershipAmounts)
 	if err != nil {
 		panic(err)
@@ -182,5 +213,14 @@ func main() {
 	err = writeMembersToCsv(allMembersPath, allMembers)
 	if err != nil {
 		panic(err)
+	}
+
+	membersMissingFromMarketingList := identifyMembersMissingFromMarketingList(allMembers, marketingEmailAddresses)
+	if len(membersMissingFromMarketingList) > 0 {
+		fmt.Printf("Writing %v members details to %v.\n", len(membersMissingFromMarketingList), missingMarketingPath)
+		err = writeMembersToCsv(missingMarketingPath, membersMissingFromMarketingList)
+		if err != nil {
+			panic(err)
+		}
 	}
 }

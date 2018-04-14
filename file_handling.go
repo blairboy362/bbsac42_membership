@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/csv"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -135,6 +136,29 @@ func loadMemberReferencesFromCsv(path string) (references map[string][]string, e
 	}
 
 	return references, nil
+}
+
+func loadEmailsFromCsv(path string) (emails []string, err error) {
+	emailsFile, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer emailsFile.Close()
+
+	emails = []string{}
+	csvReader := csv.NewReader(bufio.NewReader(emailsFile))
+	for {
+		line, err := csvReader.Read()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, err
+		}
+
+		emails = append(emails, line[0])
+	}
+
+	return emails, nil
 }
 
 func writeTxnsToCsv(path string, txns []*bankTxn) error {
