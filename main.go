@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 const (
@@ -54,7 +55,7 @@ func newMembership(fc *fileConfig) (*membership, error) {
 		return nil, err
 	}
 
-	m.newMembers, err = loadNewMembersFromCsv(fc.getSourcePath("new_members.csv"))
+	m.newMembers, err = loadAllMembersFromCsv(fc.getSourcePath("new_members.csv"))
 	if err != nil {
 		panic(err)
 	}
@@ -107,8 +108,17 @@ func identifyMembersMissingFromMarketingList(allMembers []*Member, marketingEmai
 }
 
 func main() {
-	if len(os.Args) < 3 {
-		panic("Missing argument!")
+	var (
+		currentYyyyMm = kingpin.Flag("currentYyyyMm", "override date string (for file organisation)").Default(time.Now().UTC().Format("200601")).String()
+		baseDir       = kingpin.Arg("baseDir", "the base directory for the files").Required().String()
+		emailListPath = kingpin.Arg("emailListPath", "path to the marketing email list").Required().String()
+	)
+
+	kingpin.Parse()
+
+	folderDate, err := time.Parse("200601", *currentYyyyMm)
+	if err != nil {
+		panic(err)
 	}
 
 	correctMembershipAmounts := []decimal.Decimal{
@@ -121,11 +131,10 @@ func main() {
 		decimal.New(25, 0),
 	}
 	membershipAmounts = append(membershipAmounts, correctMembershipAmounts...)
-	currentUtcTime := time.Now().UTC()
 	fileConfig := fileConfig{
-		os.Args[1],
-		currentUtcTime.Format("200601"),
-		currentUtcTime.AddDate(0, -1, 0).Format("200601"),
+		*baseDir,
+		folderDate.Format("200601"),
+		folderDate.AddDate(0, -1, 0).Format("200601"),
 	}
 
 	ignoreTxnsPath := fileConfig.getCurrentDestinationPath(DefaultIgnoreTxnsPath)
@@ -134,7 +143,7 @@ func main() {
 	paidMembersPath := fileConfig.getCurrentDestinationPath(DefaultPaidMembersPath)
 	unmatchedMemberIDsPath := fileConfig.getCurrentDestinationPath(DefaultUnmatchedMemberIDsPath)
 	allMembersPath := fileConfig.getCurrentDestinationPath(DefaultAllMembersPath)
-	marketingEmailListPath := os.Args[2]
+	marketingEmailListPath := *emailListPath
 	missingMarketingPath := fileConfig.getCurrentDestinationPath(DefaultMissingMarketingPath)
 
 	membership, err := newMembership(&fileConfig)

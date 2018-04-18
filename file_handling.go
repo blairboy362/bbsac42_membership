@@ -56,7 +56,7 @@ func loadMembershipDetailsFromCsv(path string) (members map[string]*Member, err 
 	return members, nil
 }
 
-func loadNewMembersFromCsv(path string) (members []*Member, err error) {
+func loadAllMembersFromCsv(path string) (members []*Member, err error) {
 	memberFile, err := os.Open(path)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to open %s", path)
