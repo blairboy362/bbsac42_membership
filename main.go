@@ -17,6 +17,8 @@ const (
 	DefaultUnmatchedMemberIDsPath      = "unmatched_memberids.csv"
 	DefaultAllMembersPath              = "all_members.csv"
 	DefaultMissingMarketingPath        = "missing_marketing.csv"
+	DefaultLeaversPath                 = "leavers.csv"
+	DefaultJoinersPath                 = "joiners.csv"
 )
 
 type membership struct {
@@ -128,6 +130,7 @@ func main() {
 	membershipAmounts := []decimal.Decimal{
 		decimal.New(165, -1),
 		decimal.New(15, 0),
+		decimal.New(18, 0),
 		decimal.New(25, 0),
 	}
 	membershipAmounts = append(membershipAmounts, correctMembershipAmounts...)
@@ -145,6 +148,9 @@ func main() {
 	allMembersPath := fileConfig.getCurrentDestinationPath(DefaultAllMembersPath)
 	marketingEmailListPath := *emailListPath
 	missingMarketingPath := fileConfig.getCurrentDestinationPath(DefaultMissingMarketingPath)
+	previousAllMembersPath := fileConfig.getPreviousDestinationPath(DefaultAllMembersPath)
+	leaversPath := fileConfig.getCurrentDestinationPath(DefaultLeaversPath)
+	joinersPath := fileConfig.getCurrentDestinationPath(DefaultJoinersPath)
 
 	membership, err := newMembership(&fileConfig)
 	if err != nil {
@@ -230,6 +236,32 @@ func main() {
 		err = writeMembersToCsv(missingMarketingPath, membersMissingFromMarketingList)
 		if err != nil {
 			panic(err)
+		}
+	}
+
+	_, err = os.Stat(previousAllMembersPath)
+	if err == nil {
+		previousAllMembers, err := loadAllMembersFromCsv(previousAllMembersPath)
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Printf("Loaded %v members from %v.\n", len(previousAllMembers), previousAllMembersPath)
+		leavers, joiners := identifyLeaversAndJoiners(previousAllMembers, allMembers)
+		if len(leavers) > 0 {
+			fmt.Printf("Writing %v leavers details to %v.\n", len(leavers), leaversPath)
+			err = writeMembersToCsv(leaversPath, leavers)
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		if len(joiners) > 0 {
+			fmt.Printf("Writing %v joiners details to %v.\n", len(joiners), joinersPath)
+			err = writeMembersToCsv(joinersPath, joiners)
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
 }

@@ -54,3 +54,56 @@ func TestMatchMembers(t *testing.T) {
 		}
 	}
 }
+
+func TestIdentifyLeaversAndJoiners(t *testing.T) {
+	previousMembers := []*Member{
+		{"A123456", "Mr", "Joe", "Blogg", "joebloggs@example.com"},
+		{"A789012", "Ms", "Jane", "Doe", "janedoe@example.com"},
+		{"", "Mr", "Non", "Member", "nonmember@example.com"},
+	}
+	currentMembers := []*Member{
+		{"A123456", "Mr", "Joe", "Blogg", "joebloggs@example.com"},
+		{"", "Mr", "New", "Nonmember", "newnonmember@example.com"},
+		{"3456789", "Mr", "New", "Member", "newmember@example.com"},
+	}
+	expectedLeavers := []*Member{
+		{"A789012", "Ms", "Jane", "Doe", "janedoe@example.com"},
+		{"", "Mr", "Non", "Member", "nonmember@example.com"},
+	}
+	expectedJoiners := []*Member{
+		{"", "Mr", "New", "Nonmember", "newnonmember@example.com"},
+		{"3456789", "Mr", "New", "Member", "newmember@example.com"},
+	}
+
+	actualLeavers, actualJoiners := identifyLeaversAndJoiners(previousMembers, currentMembers)
+
+	if actualLeavers == nil || actualJoiners == nil {
+		t.Fatalf("One or more returns are nil!")
+	}
+
+	if len(actualLeavers) != len(expectedLeavers) {
+		t.Fatalf("Leaver counts are not the same (%v, %v)", len(actualLeavers), len(expectedLeavers))
+	}
+
+	if len(actualJoiners) != len(expectedJoiners) {
+		t.Fatalf("Joiner counts are not the same (%v, %v)", len(actualJoiners), len(expectedJoiners))
+	}
+
+	for i := range expectedLeavers {
+		if !expectedLeavers[i].equal(actualLeavers[i]) {
+			t.Fatalf(
+				"%v != %v",
+				expectedLeavers[i],
+				actualLeavers[i])
+		}
+	}
+
+	for i := range expectedJoiners {
+		if !expectedJoiners[i].equal(actualJoiners[i]) {
+			t.Fatalf(
+				"%v != %v",
+				expectedJoiners[i],
+				actualJoiners[i])
+		}
+	}
+}
