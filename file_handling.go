@@ -73,11 +73,11 @@ func loadAllMembersFromCsv(path string) (members []*Member, err error) {
 
 type CsvBankTxn struct {
 	Junk1       string `csv:"Date"`
-	Junk2       string `csv:"Type"`
+	TxnType     string `csv:"Type"`
 	Description string `csv:"Description"`
-	Junk3       string `csv:"Paid out"`
+	Junk2       string `csv:"Paid out"`
 	Amount      string `csv:"Paid in"`
-	Junk4       string `csv:"Balance"`
+	Junk3       string `csv:"Balance"`
 }
 
 func loadTxnsFromCsv(path string) (txns []*bankTxn, err error) {
@@ -94,12 +94,14 @@ func loadTxnsFromCsv(path string) (txns []*bankTxn, err error) {
 	}
 
 	for _, loadedTxn := range loadedTxns {
-		txn, err := newBankTxn(loadedTxn.Description, loadedTxn.Amount)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to parse transaction (%v): %v", *loadedTxn, err)
-		}
+		if loadedTxn.TxnType == "CR" {
+			txn, err := newBankTxn(loadedTxn.Description, loadedTxn.Amount)
+			if err != nil {
+				return nil, fmt.Errorf("Failed to parse transaction (%v): %v", *loadedTxn, err)
+			}
 
-		txns = append(txns, txn)
+			txns = append(txns, txn)
+		}
 	}
 
 	return txns, nil
