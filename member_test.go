@@ -65,10 +65,10 @@ func TestIdentifyLeaversAndJoiners(t *testing.T) {
 		{"A123456", "Mr", "Joe", "Blogg", "joebloggs@example.com"},
 		{"", "Mr", "New", "Nonmember", "newnonmember@example.com"},
 		{"3456789", "Mr", "New", "Member", "newmember@example.com"},
+		{"A456789", "Mr", "Non", "Member", "nonmember@example.com"},
 	}
 	expectedLeavers := []*Member{
 		{"A789012", "Ms", "Jane", "Doe", "janedoe@example.com"},
-		{"", "Mr", "Non", "Member", "nonmember@example.com"},
 	}
 	expectedJoiners := []*Member{
 		{"", "Mr", "New", "Nonmember", "newnonmember@example.com"},
