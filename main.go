@@ -19,6 +19,8 @@ const (
 	DefaultMissingMarketingPath        = "missing_marketing.csv"
 	DefaultLeaversPath                 = "leavers.csv"
 	DefaultJoinersPath                 = "joiners.csv"
+	DefaultConsentingEmailsPath        = "consenting_emails.csv"
+	DefaultEmailListPath               = "email_list.csv"
 )
 
 type membership struct {
@@ -87,33 +89,34 @@ func (m *membership) loadAndFilterTxns(txnsPath string, correctMembershipAmounts
 	return am, err
 }
 
-func identifyMembersMissingFromMarketingList(allMembers []*Member, marketingEmailAddresses []string) (missingMembers []*Member) {
-	var found = false
-	missingMembers = []*Member{}
+func createEmailList(allMembers []*Member, consentingEmailAddresses []string) (emailAddresses []string) {
+	emailMap := map[string]string{}
 	for _, member := range allMembers {
 		if len(member.EmailAddress) > 0 {
-			found = false
-			for _, emailAddress := range marketingEmailAddresses {
-				if emailAddress == member.EmailAddress {
-					found = true
-					break
-				}
-			}
+			emailMap[member.EmailAddress] = member.EmailAddress
+		}
+	}
 
-			if !found {
-				missingMembers = append(missingMembers, member)
+	for _, emailAddress := range consentingEmailAddresses {
+		if len(emailAddress) > 0 {
+			if _, ok := emailMap[emailAddress]; !ok {
+				emailMap[emailAddress] = emailAddress
 			}
 		}
 	}
 
-	return missingMembers
+	emailAddresses = []string{}
+	for emailAddress := range emailMap {
+		emailAddresses = append(emailAddresses, emailAddress)
+	}
+
+	return emailAddresses
 }
 
 func main() {
 	var (
 		currentYyyyMm = kingpin.Flag("currentYyyyMm", "override date string (for file organisation)").Default(time.Now().UTC().Format("200601")).String()
 		baseDir       = kingpin.Arg("baseDir", "the base directory for the files").Required().String()
-		emailListPath = kingpin.Arg("emailListPath", "path to the marketing email list").Required().String()
 	)
 
 	kingpin.Parse()
@@ -146,11 +149,11 @@ func main() {
 	paidMembersPath := fileConfig.getCurrentDestinationPath(DefaultPaidMembersPath)
 	unmatchedMemberIDsPath := fileConfig.getCurrentDestinationPath(DefaultUnmatchedMemberIDsPath)
 	allMembersPath := fileConfig.getCurrentDestinationPath(DefaultAllMembersPath)
-	marketingEmailListPath := *emailListPath
-	missingMarketingPath := fileConfig.getCurrentDestinationPath(DefaultMissingMarketingPath)
 	previousAllMembersPath := fileConfig.getPreviousDestinationPath(DefaultAllMembersPath)
 	leaversPath := fileConfig.getCurrentDestinationPath(DefaultLeaversPath)
 	joinersPath := fileConfig.getCurrentDestinationPath(DefaultJoinersPath)
+	consentingEmailsPath := fileConfig.getSourcePath(DefaultConsentingEmailsPath)
+	emailListPath := fileConfig.getCurrentDestinationPath(DefaultEmailListPath)
 
 	membership, err := newMembership(&fileConfig)
 	if err != nil {
@@ -160,12 +163,7 @@ func main() {
 	fmt.Printf("Loaded %v references.\n", len(membership.references))
 	fmt.Printf("Loaded %v members details.\n", len(membership.members))
 	fmt.Printf("Loaded %v new members details.\n", len(membership.newMembers))
-	marketingEmailAddresses, err := loadEmailsFromCsv(marketingEmailListPath)
-	if err != nil {
-		panic(err)
-	}
 
-	fmt.Printf("Loaded %v marketing email addresses.\n", len(marketingEmailAddresses))
 	activeMembers, err := membership.loadAndFilterTxns(fileConfig.getCurrentSourcePath("bank_acct_txns.csv"), correctMembershipAmounts, membershipAmounts)
 	if err != nil {
 		panic(err)
@@ -230,13 +228,17 @@ func main() {
 		panic(err)
 	}
 
-	membersMissingFromMarketingList := identifyMembersMissingFromMarketingList(allMembers, marketingEmailAddresses)
-	if len(membersMissingFromMarketingList) > 0 {
-		fmt.Printf("Writing %v members details to %v.\n", len(membersMissingFromMarketingList), missingMarketingPath)
-		err = writeMembersToCsv(missingMarketingPath, membersMissingFromMarketingList)
-		if err != nil {
-			panic(err)
-		}
+	consentingEmails, err := loadEmailsFromCsv(consentingEmailsPath)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Loaded %v consenting email addresses from %v\n", len(consentingEmails), consentingEmailsPath)
+	emailList := createEmailList(allMembers, consentingEmails)
+	fmt.Printf("Writing %v email addresses to %v\n", len(emailList), emailListPath)
+	err = writeStringsToCsv(emailListPath, emailList)
+	if err != nil {
+		panic(err)
 	}
 
 	_, err = os.Stat(previousAllMembersPath)

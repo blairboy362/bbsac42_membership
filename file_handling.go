@@ -204,20 +204,40 @@ func writeMembersToCsv(path string, members []*Member) error {
 }
 
 func writeMemberIdsToCsv(path string, memberIds []string) error {
-	memberIDFile, err := os.Create(path)
+	targetFile, err := os.Create(path)
 	if err != nil {
 		return err
 	}
-	defer memberIDFile.Close()
+	defer targetFile.Close()
 
-	csvWriter := csv.NewWriter(bufio.NewWriter(memberIDFile))
+	csvWriter := csv.NewWriter(bufio.NewWriter(targetFile))
 	err = csvWriter.Write([]string{"MemberId"})
 	if err != nil {
 		return err
 	}
 
-	for _, memberID := range memberIds {
-		err := csvWriter.Write([]string{memberID})
+	for _, line := range memberIds {
+		err := csvWriter.Write([]string{line})
+		if err != nil {
+			return err
+		}
+	}
+
+	csvWriter.Flush()
+
+	return nil
+}
+
+func writeStringsToCsv(path string, content []string) error {
+	targetFile, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer targetFile.Close()
+
+	csvWriter := csv.NewWriter(bufio.NewWriter(targetFile))
+	for _, line := range content {
+		err := csvWriter.Write([]string{line})
 		if err != nil {
 			return err
 		}
