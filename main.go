@@ -16,11 +16,11 @@ const (
 	DefaultPaidMembersPath             = "paid_members.csv"
 	DefaultUnmatchedMemberIDsPath      = "unmatched_memberids.csv"
 	DefaultAllMembersPath              = "all_members.csv"
-	DefaultMissingMarketingPath        = "missing_marketing.csv"
 	DefaultLeaversPath                 = "leavers.csv"
 	DefaultJoinersPath                 = "joiners.csv"
 	DefaultConsentingEmailsPath        = "consenting_emails.csv"
 	DefaultEmailListPath               = "email_list.csv"
+	DefaultWithdrawEmailsPath          = "withdraw_emails.csv"
 )
 
 type membership struct {
@@ -89,7 +89,7 @@ func (m *membership) loadAndFilterTxns(txnsPath string, correctMembershipAmounts
 	return am, err
 }
 
-func createEmailList(allMembers []*Member, consentingEmailAddresses []string) (emailAddresses []string) {
+func createEmailList(allMembers []*Member, consentingEmailAddresses []string, withdrawEmailAddresses []string) (emailAddresses []string) {
 	emailMap := map[string]string{}
 	for _, member := range allMembers {
 		if len(member.EmailAddress) > 0 {
@@ -101,6 +101,14 @@ func createEmailList(allMembers []*Member, consentingEmailAddresses []string) (e
 		if len(emailAddress) > 0 {
 			if _, ok := emailMap[emailAddress]; !ok {
 				emailMap[emailAddress] = emailAddress
+			}
+		}
+	}
+
+	for _, emailAddress := range withdrawEmailAddresses {
+		if len(emailAddress) > 0 {
+			if _, ok := emailMap[emailAddress]; ok {
+				delete(emailMap, emailAddress)
 			}
 		}
 	}
@@ -154,6 +162,7 @@ func main() {
 	joinersPath := fileConfig.getCurrentDestinationPath(DefaultJoinersPath)
 	consentingEmailsPath := fileConfig.getSourcePath(DefaultConsentingEmailsPath)
 	emailListPath := fileConfig.getCurrentDestinationPath(DefaultEmailListPath)
+	withdrawEmailsPath := fileConfig.getSourcePath(DefaultWithdrawEmailsPath)
 
 	membership, err := newMembership(&fileConfig)
 	if err != nil {
@@ -234,7 +243,13 @@ func main() {
 	}
 
 	fmt.Printf("Loaded %v consenting email addresses from %v\n", len(consentingEmails), consentingEmailsPath)
-	emailList := createEmailList(allMembers, consentingEmails)
+	withdrawEmails, err := loadEmailsFromCsv(withdrawEmailsPath)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Loaded %v withdraw email addresses from %v\n", len(withdrawEmails), withdrawEmailsPath)
+	emailList := createEmailList(allMembers, consentingEmails, withdrawEmails)
 	fmt.Printf("Writing %v email addresses to %v\n", len(emailList), emailListPath)
 	err = writeStringsToCsv(emailListPath, emailList)
 	if err != nil {
