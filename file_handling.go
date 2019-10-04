@@ -75,8 +75,8 @@ type CsvBankTxn struct {
 	Junk1       string `csv:"Date"`
 	TxnType     string `csv:"Type"`
 	Description string `csv:"Description"`
-	Junk2       string `csv:"Paid out"`
-	Amount      string `csv:"Paid in"`
+	Junk2       string `csv:"Paid Out"`
+	Amount      string `csv:"Paid In"`
 	Junk3       string `csv:"Balance"`
 }
 
